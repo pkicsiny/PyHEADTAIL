@@ -9,7 +9,10 @@
 @copyright CERN
 '''
 
-
+"""
+27/12/2021: add cov_per_slice and _cov
+29/12/2021: att update=bool to add_statistics to be able to update existing per slice moments
+"""
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -441,7 +444,7 @@ class Slicer(Printing, metaclass=ABCMeta):
                            'computation time.')
 
     @decorators.synchronize_gpu_streams_after
-    def add_statistics(self, sliceset, beam, statistics):
+    def add_statistics(self, sliceset, beam, statistics, update=False):
         '''Calculate all the statistics quantities (strings) that are
         named in the list 'statistics' and add a corresponding
         attribute to the SliceSet instance. The nomenclature must be
@@ -451,7 +454,8 @@ class Slicer(Printing, metaclass=ABCMeta):
             eff_epsn_x, eff_epsn_y.
 
         statistics=True adds all at once.
-        '''
+        ''' 
+        #print(statistics)
         if statistics is True:
             statistics = ['mean_x', 'mean_y', 'mean_z',
                           'mean_xp', 'mean_yp', 'mean_dp',
@@ -459,14 +463,16 @@ class Slicer(Printing, metaclass=ABCMeta):
                           'epsn_x', 'epsn_y', 'epsn_z',
                           'eff_epsn_x', 'eff_epsn_y']
         for stat in statistics:
-            if not hasattr(sliceset, stat):
+            if not hasattr(sliceset, stat) or update==True:
                 stat_caller = getattr(self, '_' + stat)
+                #print("stat_caller: ", stat_caller)
                 if pm.device is 'GPU':
                     st = next(gpu_utils.stream_pool)
                     values = stat_caller(sliceset, beam,
                                          stream=next(gpu_utils.stream_pool))
                 else:
                     values = stat_caller(sliceset, beam)
+                    #print("values: ", values)
                 setattr(sliceset, stat, values)
 
     def _mean_x(self, sliceset, beam, **kwargs):
@@ -490,14 +496,33 @@ class Slicer(Printing, metaclass=ABCMeta):
     def _sigma_x(self, sliceset, beam, **kwargs):
         return self._sigma(sliceset, beam.x, **kwargs)
 
+    def _sigma_xp(self, sliceset, beam, **kwargs):
+        return self._sigma(sliceset, beam.xp, **kwargs)
+
     def _sigma_y(self, sliceset, beam, **kwargs):
         return self._sigma(sliceset, beam.y, **kwargs)
+
+    def _sigma_yp(self, sliceset, beam, **kwargs):
+        return self._sigma(sliceset, beam.yp, **kwargs)
 
     def _sigma_z(self, sliceset, beam, **kwargs):
         return self._sigma(sliceset, beam.z, **kwargs)
 
     def _sigma_dp(self, sliceset, beam, **kwargs):
         return self._sigma(sliceset, beam.dp, **kwargs)
+
+    def _cov_x_xp(self, sliceset, beam, **kwargs):
+        return self._cov(sliceset, beam.x, beam.xp, **kwargs)
+    def _cov_x_y(self, sliceset, beam, **kwargs):
+        return self._cov(sliceset, beam.x, beam.y, **kwargs)
+    def _cov_x_yp(self, sliceset, beam, **kwargs):
+        return self._cov(sliceset, beam.x, beam.yp, **kwargs)
+    def _cov_xp_y(self, sliceset, beam, **kwargs):
+        return self._cov(sliceset, beam.xp, beam.y, **kwargs)
+    def _cov_xp_yp(self, sliceset, beam, **kwargs):
+        return self._cov(sliceset, beam.xp, beam.yp, **kwargs)
+    def _cov_y_yp(self, sliceset, beam, **kwargs):
+        return self._cov(sliceset, beam.y, beam.yp, **kwargs)
 
     def _epsn_x(self, sliceset, beam, **kwargs): # dp will always be present in a sliced beam
         return self._epsn(sliceset, beam.x, beam.xp, beam.dp, **kwargs) * beam.betagamma
@@ -524,6 +549,9 @@ class Slicer(Printing, metaclass=ABCMeta):
 
     def _sigma(self, sliceset, u, **kwargs):
         return pm.std_per_slice(sliceset, u, **kwargs)
+
+    def _cov(self, sliceset, a, b, **kwargs):
+        return pm.cov_per_slice(sliceset, a, b, **kwargs)
 
     def _epsn(self, sliceset, u, up, dp, **kwargs):
         return pm.emittance_per_slice(sliceset, u, up, dp=dp, **kwargs)
@@ -603,7 +631,7 @@ class UniformBinSlicer(Slicer):
         '''
         z_cut_tail, z_cut_head = self.get_long_cuts(beam)
         slice_width = (z_cut_head - z_cut_tail) / float(self.n_slices)
-
+ 
         z_bins = pm.arange(z_cut_tail, z_cut_head + 1e-7*slice_width,
                            slice_width, self.n_slices+1, dtype=np.float64)
         slice_index_of_particle = make_int32(pm.floor(

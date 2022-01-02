@@ -149,6 +149,8 @@ class Particles(Printing):
         #                               kwargs['statistics'])
         return self._slice_sets[slicer]
 
+    def get_moments(self, slicer, sliceset, statistics):
+        return slicer.add_statistics(sliceset, self, statistics=statistics, update=True)
 
     def extract_slices(self, slicer, include_non_sliced='if_any', *args, **kwargs):
         '''Return a list Particles object with the different slices.

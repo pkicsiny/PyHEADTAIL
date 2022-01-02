@@ -12,6 +12,10 @@ from scipy.special import wofz as _scipy_wofz
 
 from PyHEADTAIL.cobra_functions import stats as cp
 
+"""
+27/12/2021: add cov_per_slice
+"""
+
 try:
     import pycuda.cumath
     import pycuda.gpuarray
@@ -132,6 +136,20 @@ def _std_per_slice_cpu(sliceset, u, **kwargs):
                       u, std_u)
     return std_u
 
+def _cov_per_slice_cpu(sliceset, a, b, **kwargs):
+    '''
+    CPU Wrapper for the cov per slice function.
+    TODO: Find a good spot where to put this function (equiv to gpu_wrap)
+    --> Directly into cobra_functions/stats.pyx?
+    '''
+    cov_ab = np.zeros(sliceset.n_slices)
+    cp.cov_per_slice(sliceset.slice_index_of_particle,
+                      sliceset.particles_within_cuts,
+                      sliceset.n_macroparticles_per_slice,
+                      a, b, cov_ab)
+    return cov_ab
+
+
 def _emittance_per_slice_cpu(sliceset, u, up, dp=None, **kwargs):
     '''
     CPU Wrapper for the emittance per slice function.
@@ -211,6 +229,7 @@ _CPU_numpy_func_dict = {
     'apply_permutation': lambda array, permutation: array[permutation], #auto copy
     'mean_per_slice': _mean_per_slice_cpu,
     #'cov_per_slice': lambda sliceset, u: _cov_per_slice_cpu(sliceset, u),
+    'cov_per_slice': _cov_per_slice_cpu,
     'std_per_slice': _std_per_slice_cpu,
     'emittance_per_slice': _emittance_per_slice_cpu,
     'particles_within_cuts': lambda sliceset: np.where(

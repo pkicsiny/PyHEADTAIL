@@ -19,6 +19,7 @@ from PyHEADTAIL.gpu import gpu_utils as gpu_utils
 from PyHEADTAIL.general import decorators as decorators
 from PyHEADTAIL.cobra_functions import stats as cp
 
+from mpi4py import MPI
 # from .. import cobra_functions.stats.calc_cell_stats as calc_cell_stats
 
 
@@ -113,7 +114,7 @@ class BunchMonitor(Monitor):
         parameters_dict as metadata (attributes) to the file.
         Maximum file compression is activated. """
         try:
-            h5file = hp.File(self.filename + '.h5', 'w')
+            h5file = hp.File(self.filename + '.h5', 'w', driver="mpio", comm=MPI.COMM_WORLD)
             if parameters_dict:
                 for key in parameters_dict:
                     h5file.attrs[key] = parameters_dict[key]
@@ -126,7 +127,7 @@ class BunchMonitor(Monitor):
             h5file.close()
         except Exception as err:
             self.warns('Problem occurred during Bunch monitor creation.')
-            self.warns(err.message)
+            self.warns(str(err))
             raise
 
     @decorators.synchronize_gpu_streams_after
@@ -181,7 +182,7 @@ class BunchMonitor(Monitor):
         # step and repeat it again after self.write_buffer_every. As
         # long as self.buffer_size is not exceeded, no data are lost.
         try:
-            h5file = hp.File(self.filename + '.h5', 'a')
+            h5file = hp.File(self.filename + '.h5', 'a', driver="mpio", comm=MPI.COMM_WORLD)
             h5group = h5file['Bunch']
             for stats in self.stats_to_store:
                 h5group[stats][low_pos_in_file:up_pos_in_file] = \
@@ -281,7 +282,7 @@ class SliceMonitor(Monitor):
         (attributes) to the file. Maximum file compression is
         activated. """
         try:
-            h5file = hp.File(self.filename + '.h5', 'w')
+            h5file = hp.File(self.filename + '.h5', 'w', driver="mpio", comm=MPI.COMM_WORLD)
             if parameters_dict:
                 for key in parameters_dict:
                     h5file.attrs[key] = parameters_dict[key]
@@ -300,7 +301,7 @@ class SliceMonitor(Monitor):
             h5file.close()
         except Exception as err:
             self.warns('Problem occurred during Slice monitor creation.')
-            self.warns(err.message)
+            self.warns(str(err))
             raise
 
     def _write_data_to_buffer(self, bunch):
@@ -364,7 +365,7 @@ class SliceMonitor(Monitor):
         # step and repeat it again after self.write_buffer_every. As
         # long as self.buffer_size is not exceeded, no data are lost.
         try:
-            h5file = hp.File(self.filename + '.h5', 'a')
+            h5file = hp.File(self.filename + '.h5', 'a', driver="mpio", comm=MPI.COMM_WORLD)
             h5group_bunch = h5file['Bunch']
             h5group_slice = h5file['Slices']
             for stats in self.bunch_stats_to_store:
@@ -421,14 +422,14 @@ class ParticleMonitor(Monitor):
         contents of the parameters_dict as metadata (attributes)
         to the file. Maximum file compression is activated. """
         try:
-            h5file = hp.File(self.filename + '.h5part', 'w')
+            h5file = hp.File(self.filename + '.h5part', 'w', driver="mpio", comm=MPI.COMM_WORLD)
             if parameters_dict:
                 for key in parameters_dict:
                     h5file.attrs[key] = parameters_dict[key]
             h5file.close()
         except Exception as err:
             self.warns('Problem occurred during Particle monitor creation.')
-            self.warns(err.message)
+            self.warns(str(err))
             raise
 
     def _write_data_to_file(self, bunch, arrays_dict):
@@ -440,7 +441,7 @@ class ParticleMonitor(Monitor):
         For each simulation step, a new group with name 'Step#..' is
         created. It contains one dataset for each of the quantities
         given in self.quantities_to_store. """
-        h5file = hp.File(self.filename + '.h5part', 'a')
+        h5file = hp.File(self.filename + '.h5part', 'a', driver="mpio", comm=MPI.COMM_WORLD)
         h5group = h5file.create_group('Step#' + str(self.i_steps))
         dims = (bunch.macroparticlenumber // self.stride,)
         dims = list(bunch.get_coords_n_momenta_dict().values())[0][::self.stride].shape # more robust implementation
@@ -546,7 +547,7 @@ class CellMonitor(Monitor):
         (attributes) to the file. Maximum file compression is
         activated. """
         try:
-            h5file = hp.File(self.filename + '.h5', 'w')
+            h5file = hp.File(self.filename + '.h5', 'w', driver="mpio", comm=MPI.COMM_WORLD)
             if parameters_dict:
                 for key in parameters_dict:
                     h5file.attrs[key] = parameters_dict[key]
@@ -561,7 +562,7 @@ class CellMonitor(Monitor):
             h5file.close()
         except Exception as err:
             self.warns('Problem occurred during Cell monitor creation.')
-            self.warns(err.message)
+            self.warns(str(err))
             raise
 
     def _write_data_to_buffer(self, bunch):
@@ -614,7 +615,7 @@ class CellMonitor(Monitor):
         # step and repeat it again after self.write_buffer_every. As
         # long as self.buffer_size is not exceeded, no data are lost.
         try:
-            h5file = hp.File(self.filename + '.h5', 'a')
+            h5file = hp.File(self.filename + '.h5', 'a', driver="mpio", comm=MPI.COMM_WORLD)
             h5group_cells = h5file['Cells']
 
             for stats in self.stats_to_store:
@@ -622,4 +623,4 @@ class CellMonitor(Monitor):
                     self.buffer_cell[stats][:,:,low_pos_in_buffer:]
             h5file.close()
         except Exception as err:
-            self.warns(err.message)
+            self.warns(str(err))
