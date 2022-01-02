@@ -86,28 +86,8 @@ def ensure_same_device(array):
     else:
         raise UnknownContextManagerError()
 
-# # Kevin's sincos interface:
-# try:
-#     from ..cobra_functions.c_sin_cos import cm_sin, cm_cos
-
-#     def cm_sincos(x):
-#         return cm_sin(x), cm_cos(x)
-
-#     sin = cm_sin
-#     cos = cm_cos
-#     sincos = cm_sincos
-# except ImportError as e:
-#     # print ('\n' + e.message)
-#     # print ("Falling back to NumPy versions...\n")
-### defaulting to NumPy sin/cos because Kevin's sincos interface
-### results in VisibleDeprecationWarnings with the current transverse
-### tracking module (returned objects are memoryviews and not ndarrays)
 def np_sincos(x):
     return np.sin(x), np.cos(x)
-
-sin = np.sin
-cos = np.cos
-sincos = np_sincos
 
 
 def _mean_per_slice_cpu(sliceset, u, **kwargs):
@@ -221,6 +201,10 @@ _CPU_numpy_func_dict = {
     'mean': np.mean,
     'std': cp.std,
     'emittance': lambda *args, **kwargs: cp.emittance(*args, **kwargs),
+    'dispersion': cp.dispersion,
+    'get_alpha': cp.get_alpha,
+    'get_beta': cp.get_beta,
+    'get_gamma': cp.get_gamma,
     'min': np.min,
     'max': np.max,
     'diff': np.diff,
@@ -271,7 +255,7 @@ _CPU_numpy_func_dict = {
     'put': np.put,
     'atleast_1d': np.atleast_1d,
     'almost_zero': lambda array, *args, **kwargs: np.allclose(array, 0, *args, **kwargs),
-    'sincos': sincos,
+    'sincos': np_sincos,
     '_cpu': None # dummy to have at least one distinction between cpu/gpu
 }
 
@@ -282,13 +266,17 @@ if has_pycuda:
         'exp': pycuda.cumath.exp,
         'log': pycuda.cumath.log,
         'cosh': pycuda.cumath.cosh,
-        'mean': gpu_wrap.mean,#lambda *args, **kwargs: skcuda.misc.mean(*args, **kwargs),
+        'mean': gpu_wrap.mean, #lambda *args, **kwargs: skcuda.misc.mean(*args, **kwargs),
         'std': gpu_wrap.std,
-        'emittance': lambda u, up, dp=None, **kwargs: gpu_wrap.emittance(u, up, dp, **kwargs),
+        'emittance': gpu_wrap.emittance,
+        'dispersion': gpu_wrap.dispersion,
+        'get_alpha': gpu_wrap.get_alpha,
+        'get_beta': gpu_wrap.get_beta,
+        'get_gamma': gpu_wrap.get_gamma,
         'min': lambda *args, **kwargs: pycuda.gpuarray.min(*args, **kwargs).get(),
         'max': lambda *args, **kwargs: pycuda.gpuarray.max(*args, **kwargs).get(),
         'diff': lambda *args, **kwargs: skcuda.misc.diff(*args, **kwargs),
-        'floor': lambda *args, **kwargs: pycuda.cumath.floor(*args, **kwargs),
+        'floor': pycuda.cumath.floor,
         'argsort': gpu_wrap.argsort,
         'apply_permutation': gpu_wrap.apply_permutation,
         'mean_per_slice': gpu_wrap.sorted_mean_per_slice,
